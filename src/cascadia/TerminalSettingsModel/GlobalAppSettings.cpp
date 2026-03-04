@@ -30,6 +30,7 @@ static constexpr std::string_view LegacyWarnAboutLargePasteKey{ "largePasteWarni
 static constexpr std::string_view LegacyWarnAboutMultiLinePasteKey{ "multiLinePasteWarning" };
 static constexpr std::string_view LegacyConfirmCloseAllTabsKey{ "confirmCloseAllTabs" };
 static constexpr std::string_view LegacyPersistedWindowLayout{ "persistedWindowLayout" };
+static constexpr std::string_view AISettingsKey{ "ai" };
 
 // Method Description:
 // - Copies any extraneous data from the parent before completing a CreateChild call
@@ -63,6 +64,7 @@ winrt::com_ptr<GlobalAppSettings> GlobalAppSettings::Copy() const
 
     globals->_defaultProfile = _defaultProfile;
     globals->_actionMap = _actionMap->Copy();
+    globals->_aiSettings = _aiSettings->Copy();
     globals->_keybindingsWarnings = _keybindingsWarnings;
 
 #define GLOBAL_SETTINGS_COPY(type, name, jsonKey, ...) \
@@ -181,6 +183,11 @@ void GlobalAppSettings::LayerJson(const Json::Value& json, const OriginTag origi
         this->InitialRows(std::clamp(this->InitialRows(), 1, 999));
     }
     LayerActionsFrom(json, origin, true);
+
+    if (auto aiJson{ json[JsonKey(AISettingsKey)] })
+    {
+        _aiSettings->LayerJson(aiJson);
+    }
 
     // No need to update _fixupsAppliedDuringLoad here.
     // We already handle this in SettingsLoader::FixupUserSettings().
@@ -342,6 +349,8 @@ Json::Value GlobalAppSettings::ToJson()
     json[JsonKey(ActionsKey)] = _actionMap->ToJson();
     json[JsonKey(KeybindingsKey)] = _actionMap->KeyBindingsToJson();
 
+    json[JsonKey(AISettingsKey)] = _aiSettings->ToJson();
+
     return json;
 }
 
@@ -389,6 +398,11 @@ void GlobalAppSettings::ExpandCommands(const winrt::Windows::Foundation::Collect
 bool GlobalAppSettings::ShouldUsePersistedLayout() const
 {
     return FirstWindowPreference() != FirstWindowPreference::DefaultProfile;
+}
+
+winrt::Microsoft::Terminal::Settings::Model::AISettings GlobalAppSettings::AISettings() const
+{
+    return *_aiSettings;
 }
 
 void GlobalAppSettings::ResolveMediaResources(const Model::MediaResourceResolver& resolver)

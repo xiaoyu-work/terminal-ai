@@ -843,6 +843,11 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         _UpdateAppearanceFromUIThread(_focused ? _core.FocusedAppearance() : _core.UnfocusedAppearance());
     }
 
+    void TermControl::UpdateAISettings(const winrt::Microsoft::Terminal::Settings::Model::AISettings& settings)
+    {
+        _core.UpdateAISettings(settings);
+    }
+
     // Method Description:
     // - Dispatches a call to the UI thread and updates the appearance
     // Arguments:

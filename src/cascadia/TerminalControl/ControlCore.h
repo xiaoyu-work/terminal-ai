@@ -23,6 +23,7 @@
 #include "../../buffer/out/search.h"
 #include "../../cascadia/TerminalCore/Terminal.hpp"
 #include "../../renderer/inc/FontInfoDesired.hpp"
+#include "AITerminalMiddleware.h"
 
 namespace Microsoft::Console::Render::Atlas
 {
@@ -265,6 +266,8 @@ namespace winrt::Microsoft::Terminal::Control::implementation
 
         void PreviewInput(std::wstring_view input);
 
+        void UpdateAISettings(const winrt::Microsoft::Terminal::Settings::Model::AISettings& settings);
+
         RUNTIME_SETTING(float, Opacity, _settings.Opacity());
         RUNTIME_SETTING(float, FocusedOpacity, FocusedAppearance().Opacity());
         RUNTIME_SETTING(bool, UseAcrylic, _settings.UseAcrylic());
@@ -312,6 +315,7 @@ namespace winrt::Microsoft::Terminal::Control::implementation
 
         void _setupDispatcherAndCallbacks();
         void _closeConnection();
+        void _initAIMiddleware();
 
         bool _setFontSizeUnderLock(float fontSize);
         void _updateFont();
@@ -405,6 +409,9 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         // Audio stuff.
         MidiAudio _midiAudio;
         winrt::Windows::System::DispatcherQueueTimer _midiAudioSkipTimer{ nullptr };
+
+        // AI middleware for inline AI terminal assistance.
+        std::unique_ptr<AITerminalMiddleware> _aiMiddleware;
 
         // Other stuff.
         winrt::Windows::System::DispatcherQueue _dispatcher{ nullptr };

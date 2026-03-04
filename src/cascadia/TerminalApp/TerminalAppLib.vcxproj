@@ -80,6 +80,9 @@
     <Page Include="MarkdownPaneContent.xaml">
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="AIPaneContent.xaml">
+      <SubType>Designer</SubType>
+    </Page>
   </ItemGroup>
   <!-- ========================= Headers ======================== -->
   <ItemGroup>
@@ -178,6 +181,11 @@
     <ClInclude Include="SuggestionsControl.h">
       <DependentUpon>SuggestionsControl.xaml</DependentUpon>
     </ClInclude>
+    <ClInclude Include="AIContextCollector.h" />
+    <ClInclude Include="AIPaneContent.h">
+      <DependentUpon>AIPaneContent.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="CopilotClient.h" />
     <ClInclude Include="MarkdownPaneContent.h">
       <DependentUpon>MarkdownPaneContent.xaml</DependentUpon>
     </ClInclude>
@@ -295,6 +303,11 @@
       <DependentUpon>MarkdownPaneContent.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClCompile>
+    <ClCompile Include="AIContextCollector.cpp" />
+    <ClCompile Include="AIPaneContent.cpp">
+      <DependentUpon>AIPaneContent.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="CopilotClient.cpp" />
 
   </ItemGroup>
   <!-- ========================= idl Files ======================== -->
@@ -364,6 +377,10 @@
     </Midl>
     <Midl Include="MarkdownPaneContent.idl">
       <DependentUpon>MarkdownPaneContent.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
+    <Midl Include="AIPaneContent.idl">
+      <DependentUpon>AIPaneContent.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Midl>
   </ItemGroup>

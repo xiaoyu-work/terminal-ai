@@ -25,6 +25,7 @@ Author(s):
 #include "Theme.h"
 #include "NewTabMenuEntry.h"
 #include "RemainingProfilesEntry.h"
+#include "AISettings.h"
 
 // fwdecl unittest classes
 namespace SettingsModelUnitTests
@@ -68,6 +69,8 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
         Model::Theme CurrentTheme() noexcept;
         bool ShouldUsePersistedLayout() const;
 
+        Model::AISettings AISettings() const;
+
         void ExpandCommands(const Windows::Foundation::Collections::IVectorView<Model::Profile>& profiles,
                             const Windows::Foundation::Collections::IMapView<winrt::hstring, Model::ColorScheme>& schemes);
 
@@ -99,6 +102,7 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
         bool _legacyReloadEnvironmentVariables{ true };
         bool _legacyForceVTInput{ false };
         winrt::com_ptr<implementation::ActionMap> _actionMap{ winrt::make_self<implementation::ActionMap>() };
+        winrt::com_ptr<implementation::AISettings> _aiSettings{ winrt::make_self<implementation::AISettings>() };
         std::set<std::string> _changeLog;
 
         std::vector<SettingsLoadWarnings> _keybindingsWarnings;

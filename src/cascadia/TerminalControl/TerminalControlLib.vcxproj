@@ -63,6 +63,7 @@
     <ClInclude Include="XamlUiaTextRange.h" />
     <ClInclude Include="HwndTerminal.hpp" />
     <ClInclude Include="HwndTerminalAutomationPeer.hpp" />
+    <ClInclude Include="AITerminalMiddleware.h" />
   </ItemGroup>
   <!-- ========================= Cpp Files ======================== -->
   <ItemGroup>
@@ -104,6 +105,7 @@
     <ClCompile Include="XamlUiaTextRange.cpp" />
     <ClCompile Include="HwndTerminal.cpp" />
     <ClCompile Include="HwndTerminalAutomationPeer.cpp" />
+    <ClCompile Include="AITerminalMiddleware.cpp" />
   </ItemGroup>
   <!-- ========================= idl Files ======================== -->
   <ItemGroup>
@@ -167,6 +169,15 @@
       <Project>{6515F03F-E56D-4DB4-B23D-AC4FB80DB36F}</Project>
       <Private>false</Private>
     </ProjectReference>
+  </ItemGroup>
+  <!-- ========================= WinMD References ======================== -->
+  <ItemGroup>
+    <Reference Include="Microsoft.Terminal.Settings.Model">
+      <HintPath>$(OpenConsoleCommonOutDir)Microsoft.Terminal.Settings.Model\Microsoft.Terminal.Settings.Model.winmd</HintPath>
+      <IsWinMDFile>true</IsWinMDFile>
+      <Private>false</Private>
+      <CopyLocalSatelliteAssemblies>false</CopyLocalSatelliteAssemblies>
+    </Reference>
   </ItemGroup>
   <!-- ====================== Compiler & Linker Flags ===================== -->
   <ItemDefinitionGroup>

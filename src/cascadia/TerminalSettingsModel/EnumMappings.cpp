@@ -43,6 +43,7 @@ namespace winrt::Microsoft::Terminal::Settings::Model::implementation
     DEFINE_ENUM_MAP(Microsoft::Terminal::Control::TextMeasurement, TextMeasurement);
     DEFINE_ENUM_MAP(Microsoft::Terminal::Control::AmbiguousWidth, AmbiguousWidth);
     DEFINE_ENUM_MAP(Microsoft::Terminal::Control::WarnAboutMultiLinePaste, WarnAboutMultiLinePaste);
+    DEFINE_ENUM_MAP(Model::AIProvider, AIProvider);
 
     // Profile Settings
     DEFINE_ENUM_MAP(Model::CloseOnExitMode, CloseOnExitMode);

@@ -4,6 +4,7 @@
 import "ICoreState.idl";
 import "IControlSettings.idl";
 import "EventArgs.idl";
+import "AISettings.idl";
 
 namespace Microsoft.Terminal.Control
 {
@@ -95,6 +96,7 @@ namespace Microsoft.Terminal.Control
                            Single compositionScale);
 
         void UpdateSettings(IControlSettings settings, IControlAppearance appearance);
+        void UpdateAISettings(Microsoft.Terminal.Settings.Model.AISettings settings);
         void ApplyAppearance(Boolean focused);
 
         Microsoft.Terminal.TerminalConnection.ITerminalConnection Connection;

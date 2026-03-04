@@ -1,0 +1,132 @@
+<!--
+    Copyright (c) Microsoft Corporation. All rights reserved. Licensed under
+    the MIT License. See LICENSE in the project root for license information.
+-->
+<Page x:Class="Microsoft.Terminal.Settings.Editor.AI"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:local="using:Microsoft.Terminal.Settings.Editor"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:mtu="using:Microsoft.Terminal.UI"
+      xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+      mc:Ignorable="d">
+
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="CommonResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <DataTemplate x:Key="EnumComboBoxTemplate"
+                          x:DataType="local:EnumEntry">
+                <TextBlock Text="{x:Bind EnumName, Mode=OneWay}" />
+            </DataTemplate>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <StackPanel>
+        <StackPanel Style="{StaticResource SettingsStackStyle}">
+
+            <!--  Enable AI  -->
+            <local:SettingContainer x:Name="AI_Enabled"
+                                    x:Uid="AI_Enabled">
+                <ToggleSwitch IsOn="{x:Bind ViewModel.Enabled, Mode=TwoWay}"
+                              Style="{StaticResource ToggleSwitchInExpanderStyle}" />
+            </local:SettingContainer>
+
+            <!--  Provider  -->
+            <local:SettingContainer x:Name="AI_Provider"
+                                    x:Uid="AI_Provider">
+                <ComboBox AutomationProperties.AccessibilityView="Content"
+                          ItemTemplate="{StaticResource EnumComboBoxTemplate}"
+                          ItemsSource="{x:Bind ViewModel.ProviderList, Mode=OneWay}"
+                          SelectedItem="{x:Bind ViewModel.CurrentProvider, Mode=TwoWay}"
+                          Style="{StaticResource ComboBoxSettingStyle}" />
+            </local:SettingContainer>
+
+            <!--  API Endpoint  -->
+            <local:SettingContainer x:Name="AI_ApiEndpoint"
+                                    x:Uid="AI_ApiEndpoint"
+                                    CurrentValue="{x:Bind ViewModel.ApiEndpoint, Mode=OneWay}"
+                                    Style="{StaticResource ExpanderSettingContainerStyle}">
+                <TextBox IsSpellCheckEnabled="False"
+                         Style="{StaticResource TextBoxSettingStyle}"
+                         Text="{x:Bind ViewModel.ApiEndpoint, Mode=TwoWay}" />
+            </local:SettingContainer>
+
+            <!--  API Key  -->
+            <local:SettingContainer x:Name="AI_ApiKey"
+                                    x:Uid="AI_ApiKey">
+                <PasswordBox Password="{x:Bind ViewModel.ApiKey, Mode=TwoWay}"
+                             Width="320"
+                             HorizontalAlignment="Left" />
+            </local:SettingContainer>
+
+            <!--  Model Name  -->
+            <local:SettingContainer x:Name="AI_ModelName"
+                                    x:Uid="AI_ModelName"
+                                    CurrentValue="{x:Bind ViewModel.ModelName, Mode=OneWay}"
+                                    Style="{StaticResource ExpanderSettingContainerStyle}">
+                <TextBox IsSpellCheckEnabled="False"
+                         Style="{StaticResource TextBoxSettingStyle}"
+                         Text="{x:Bind ViewModel.ModelName, Mode=TwoWay}" />
+            </local:SettingContainer>
+
+            <!--  Azure Deployment (visible only for Azure OpenAI)  -->
+            <local:SettingContainer x:Name="AI_AzureDeployment"
+                                    x:Uid="AI_AzureDeployment"
+                                    Visibility="{x:Bind ViewModel.IsAzureProvider, Mode=OneWay}">
+                <TextBox IsSpellCheckEnabled="False"
+                         Style="{StaticResource TextBoxSettingStyle}"
+                         Text="{x:Bind ViewModel.AzureDeployment, Mode=TwoWay}" />
+            </local:SettingContainer>
+
+            <!--  Azure API Version (visible only for Azure OpenAI)  -->
+            <local:SettingContainer x:Name="AI_AzureApiVersion"
+                                    x:Uid="AI_AzureApiVersion"
+                                    Visibility="{x:Bind ViewModel.IsAzureProvider, Mode=OneWay}">
+                <TextBox IsSpellCheckEnabled="False"
+                         Style="{StaticResource TextBoxSettingStyle}"
+                         Text="{x:Bind ViewModel.AzureApiVersion, Mode=TwoWay}" />
+            </local:SettingContainer>
+        </StackPanel>
+
+        <StackPanel Style="{StaticResource SettingsStackStyle}">
+            <!--  Grouping: Advanced  -->
+            <TextBlock x:Uid="AI_AdvancedHeader"
+                       Style="{StaticResource TextBlockSubHeaderStyle}" />
+
+            <!--  Max Context Blocks  -->
+            <local:SettingContainer x:Name="AI_MaxContextBlocks"
+                                    x:Uid="AI_MaxContextBlocks">
+                <muxc:NumberBox Maximum="20"
+                                Minimum="1"
+                                SmallChange="1"
+                                SpinButtonPlacementMode="Compact"
+                                Style="{StaticResource NumberBoxSettingStyle}"
+                                Value="{x:Bind ViewModel.MaxContextBlocks, Mode=TwoWay}" />
+            </local:SettingContainer>
+
+            <!--  Copilot CLI Path  -->
+            <local:SettingContainer x:Name="AI_CopilotCliPath"
+                                    x:Uid="AI_CopilotCliPath">
+                <StackPanel Orientation="Horizontal"
+                            Spacing="8">
+                    <TextBox IsSpellCheckEnabled="False"
+                             Width="320"
+                             PlaceholderText="copilot (searches PATH)"
+                             Text="{x:Bind ViewModel.CopilotCliPath, Mode=TwoWay}" />
+                    <FontIcon Glyph="&#xE73E;"
+                              Foreground="Green"
+                              VerticalAlignment="Center"
+                              Visibility="{x:Bind ViewModel.IsCopilotCliDetected, Mode=OneWay}" />
+                    <FontIcon Glyph="&#xE783;"
+                              Foreground="Red"
+                              VerticalAlignment="Center"
+                              Visibility="{x:Bind mtu:Converters.InvertedBooleanToVisibility(ViewModel.IsCopilotCliDetected), Mode=OneWay}" />
+                </StackPanel>
+            </local:SettingContainer>
+        </StackPanel>
+    </StackPanel>
+</Page>

@@ -879,3 +879,16 @@ JSON_ENUM_MAPPER(::winrt::Microsoft::Terminal::Control::WarnAboutMultiLinePaste)
 
     using EnumMapper::TypeDescription;
 };
+
+JSON_ENUM_MAPPER(::winrt::Microsoft::Terminal::Settings::Model::AIProvider)
+{
+    JSON_MAPPINGS(7) = {
+        pair_type{ "openai", ValueType::OpenAI },
+        pair_type{ "azureopenai", ValueType::AzureOpenAI },
+        pair_type{ "gemini", ValueType::Gemini },
+        pair_type{ "ollama", ValueType::Ollama },
+        pair_type{ "deepseek", ValueType::DeepSeek },
+        pair_type{ "anthropic", ValueType::Anthropic },
+        pair_type{ "custom", ValueType::Custom },
+    };
+};

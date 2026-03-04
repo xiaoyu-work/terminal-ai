@@ -18,6 +18,8 @@
 #include "EditColorScheme.h"
 #include "AddProfile.h"
 #include "InteractionViewModel.h"
+#include "AI.h"
+#include "AIViewModel.h"
 #include "LaunchViewModel.h"
 #include "NewTabMenuViewModel.h"
 #include "NewTabMenu.h"
@@ -629,6 +631,11 @@ namespace winrt::Microsoft::Terminal::Settings::Editor::implementation
                 addProfileState.AddNew({ get_weak(), &MainPage::_AddProfileHandler });
                 contentFrame().Navigate(xaml_typename<Editor::AddProfile>(), winrt::make<NavigateToPageArgs>(addProfileState, *this, elementToFocus));
                 _breadcrumbs.Append(winrt::make<Breadcrumb>(vm, RS_(L"Nav_AddNewProfile/Content"), BreadcrumbSubPage::None));
+            }
+            else if (*clickedItemTag == aiTag)
+            {
+                contentFrame().Navigate(xaml_typename<Editor::AI>(), winrt::make<NavigateToPageArgs>(winrt::make<AIViewModel>(_settingsClone.GlobalSettings().AISettings()), *this, elementToFocus));
+                _breadcrumbs.Append(winrt::make<Breadcrumb>(vm, RS_(L"Nav_AI/Content"), BreadcrumbSubPage::None));
             }
         }
         else if (const auto& profile = vm.try_as<Editor::ProfileViewModel>())

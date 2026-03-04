@@ -155,6 +155,17 @@
     </feature>
 
     <feature>
+        <name>Feature_AIPane</name>
+        <description>Allow the user to create AI agent panes for LLM-assisted terminal interaction.</description>
+        <id>19900</id>
+        <stage>AlwaysDisabled</stage>
+        <alwaysEnabledBrandingTokens>
+            <brandingToken>Dev</brandingToken>
+            <brandingToken>Canary</brandingToken>
+        </alwaysEnabledBrandingTokens>
+    </feature>
+
+    <feature>
         <name>Feature_KeypadModeEnabled</name>
         <description>Enables the DECKPAM, DECKPNM sequences to work as intended </description>
         <id>16654</id>

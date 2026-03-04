@@ -159,7 +159,49 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             _renderer->SetRendererEnteredErrorStateCallback([this]() { _rendererEnteredErrorState(); });
         }
 
+        _initAIMiddleware();
+
         UpdateSettings(settings, unfocusedAppearance);
+    }
+
+    void ControlCore::_initAIMiddleware()
+    {
+        _aiMiddleware = std::make_unique<AITerminalMiddleware>();
+
+        // Wire up terminal writer - writes VT sequences to terminal display.
+        // This callback may be invoked from a background thread, so we must
+        // acquire the terminal write lock before calling Write().
+        _aiMiddleware->SetTerminalWriter([this](std::wstring_view text) {
+            {
+                const auto lock = _terminal->LockForWriting();
+                _terminal->Write(text);
+            }
+            // Trigger a render pass so the new output is displayed.
+            _renderer->TriggerRedrawAll();
+        });
+
+        // Wire up connection writer - sends input to the shell process.
+        _aiMiddleware->SetConnectionWriter([this](std::wstring_view text) {
+            _sendInputToConnection(text);
+        });
+
+        // Wire up context providers so the AI middleware can read the terminal
+        // buffer text and the current working directory on demand.
+        _aiMiddleware->SetContextProvider(
+            [this]() -> std::wstring {
+                return std::wstring{ ReadEntireBuffer() };
+            },
+            [this]() -> std::wstring {
+                return std::wstring{ WorkingDirectory() };
+            });
+    }
+
+    void ControlCore::UpdateAISettings(const winrt::Microsoft::Terminal::Settings::Model::AISettings& settings)
+    {
+        if (_aiMiddleware && settings)
+        {
+            _aiMiddleware->UpdateSettings(settings);
+        }
     }
 
     void ControlCore::_rendererEnteredErrorState()
@@ -499,6 +541,13 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             return;
         }
 
+        // AI middleware interception for string input (e.g., paste).
+        // If the middleware consumes it, we skip normal handling.
+        if (_aiMiddleware && _aiMiddleware->HandleStringInput(wstr))
+        {
+            return;
+        }
+
         // The connection may call functions like WriteFile() which may block indefinitely.
         // It's important we don't hold any mutexes across such calls.
         _terminal->_assertUnlocked();
@@ -517,6 +566,14 @@ namespace winrt::Microsoft::Terminal::Control::implementation
                                     const WORD scanCode,
                                     const ::Microsoft::Terminal::Core::ControlKeyStates modifiers)
     {
+        // AI middleware interception - check before normal character handling.
+        // If the middleware is active or recognizes the trigger sequence, it
+        // consumes the character and we skip all downstream processing.
+        if (_aiMiddleware && _aiMiddleware->HandleInput(ch, scanCode, modifiers))
+        {
+            return true;
+        }
+
         const wchar_t CtrlD = 0x4;
         const wchar_t Enter = '\r';
 
@@ -663,6 +720,24 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         if (!vkey)
         {
             return true;
+        }
+
+        // If the AI middleware is active (streaming, capturing, confirming, etc.),
+        // intercept Escape and Ctrl+C to cancel the AI operation. These keys
+        // should not pass through to the shell while the middleware is working.
+        if (_aiMiddleware && _aiMiddleware->IsActive() && keyDown)
+        {
+            if (vkey == VK_ESCAPE)
+            {
+                _aiMiddleware->Cancel();
+                return true;
+            }
+            // Ctrl+C cancellation
+            if (vkey == 'C' && modifiers.IsCtrlPressed())
+            {
+                _aiMiddleware->Cancel();
+                return true;
+            }
         }
 
         TerminalInput::OutputType out;

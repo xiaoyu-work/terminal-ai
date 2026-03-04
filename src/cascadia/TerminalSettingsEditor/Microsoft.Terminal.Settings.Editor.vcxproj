@@ -77,6 +77,9 @@
       <DependentUpon>EditColorScheme.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClInclude>
+    <ClInclude Include="AI.h">
+      <DependentUpon>AI.xaml</DependentUpon>
+    </ClInclude>
     <ClInclude Include="Interaction.h">
       <DependentUpon>Interaction.xaml</DependentUpon>
     </ClInclude>
@@ -122,6 +125,9 @@
     <ClInclude Include="RenderingViewModel.h">
       <DependentUpon>RenderingViewModel.idl</DependentUpon>
       <SubType>Code</SubType>
+    </ClInclude>
+    <ClInclude Include="AIViewModel.h">
+      <DependentUpon>AIViewModel.idl</DependentUpon>
     </ClInclude>
     <ClInclude Include="InteractionViewModel.h">
       <DependentUpon>InteractionViewModel.idl</DependentUpon>
@@ -207,6 +213,9 @@
     <Page Include="EditColorScheme.xaml">
       <SubType>Designer</SubType>
     </Page>
+    <Page Include="AI.xaml">
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="Interaction.xaml">
       <SubType>Designer</SubType>
     </Page>
@@ -288,6 +297,9 @@
       <DependentUpon>EditColorScheme.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClCompile>
+    <ClCompile Include="AI.cpp">
+      <DependentUpon>AI.xaml</DependentUpon>
+    </ClCompile>
     <ClCompile Include="Interaction.cpp">
       <DependentUpon>Interaction.xaml</DependentUpon>
     </ClCompile>
@@ -334,6 +346,9 @@
     <ClCompile Include="RenderingViewModel.cpp">
       <DependentUpon>RenderingViewModel.idl</DependentUpon>
       <SubType>Code</SubType>
+    </ClCompile>
+    <ClCompile Include="AIViewModel.cpp">
+      <DependentUpon>AIViewModel.idl</DependentUpon>
     </ClCompile>
     <ClCompile Include="InteractionViewModel.cpp">
       <DependentUpon>InteractionViewModel.idl</DependentUpon>
@@ -435,6 +450,10 @@
       <DependentUpon>NewTabMenu.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Midl>
+    <Midl Include="AI.idl">
+      <DependentUpon>AI.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Midl>
     <Midl Include="Interaction.idl">
       <DependentUpon>Interaction.xaml</DependentUpon>
       <SubType>Code</SubType>
@@ -457,6 +476,7 @@
     <Midl Include="ColorSchemeViewModel.idl" />
     <Midl Include="ColorSchemesPageViewModel.idl" />
     <Midl Include="RenderingViewModel.idl" />
+    <Midl Include="AIViewModel.idl" />
     <Midl Include="InteractionViewModel.idl" />
     <Midl Include="GlobalAppearanceViewModel.idl" />
     <Midl Include="LaunchViewModel.idl" />

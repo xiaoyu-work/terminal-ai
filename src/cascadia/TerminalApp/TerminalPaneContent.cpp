@@ -343,10 +343,14 @@ namespace winrt::TerminalApp::implementation
         const auto profile{ settings.FindProfile(_profile.Guid()) };
         _profile = profile ? profile : settings.ProfileDefaults();
 
-        if (const auto settings{ _cache->TryLookup(_profile) })
+        if (const auto cachedSettings{ _cache->TryLookup(_profile) })
         {
-            _control.UpdateControlSettings(settings->DefaultSettings(), settings->UnfocusedSettings());
+            _control.UpdateControlSettings(cachedSettings->DefaultSettings(), cachedSettings->UnfocusedSettings());
         }
+
+        // Pass AI settings to the terminal control so the AI middleware
+        // can be configured (enabled/disabled, API keys, model, etc.).
+        _control.UpdateAISettings(settings.GlobalSettings().AISettings());
     }
 
     // Method Description:

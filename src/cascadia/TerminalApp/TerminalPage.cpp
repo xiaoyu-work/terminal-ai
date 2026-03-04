@@ -16,6 +16,7 @@
 #include "../TerminalSettingsAppAdapterLib/TerminalSettings.h"
 #include "App.h"
 #include "DebugTapConnection.h"
+#include "AIPaneContent.h"
 #include "MarkdownPaneContent.h"
 #include "Remoting.h"
 #include "ScratchpadContent.h"
@@ -3724,6 +3725,27 @@ namespace winrt::TerminalApp::implementation
                 }
 
                 content = *markdownContent;
+            }
+        }
+        else if (paneType == L"ai")
+        {
+            if (Feature_AIPane::IsEnabled())
+            {
+                const auto& aiContent{ winrt::make_self<AIPaneContent>() };
+                aiContent->UpdateSettings(_settings);
+                aiContent->GetRoot().KeyDown({ this, &TerminalPage::_KeyDownHandler });
+                aiContent->DispatchActionRequested([weak = get_weak()](const auto& sender, const auto& actionAndArgs) {
+                    if (const auto& page{ weak.get() })
+                    {
+                        page->_actionDispatch->DoAction(sender, actionAndArgs);
+                    }
+                });
+                if (const auto& termControl{ _GetActiveControl() })
+                {
+                    aiContent->SetLastActiveControl(termControl);
+                }
+
+                content = *aiContent;
             }
         }
 
