@@ -3,30 +3,14 @@
 
 namespace Microsoft.Terminal.Settings.Model
 {
-    enum AIProvider
-    {
-        OpenAI = 0,
-        AzureOpenAI,
-        Gemini,
-        Ollama,
-        DeepSeek,
-        Anthropic,
-        Custom
-    };
-
     [default_interface] runtimeclass AISettings
     {
         AISettings();
 
-        Boolean Enabled;
-        AIProvider Provider;
-        String ApiKey;
-        String ApiEndpoint;
-        String ModelName;
-        String AzureDeployment;
-        String AzureApiVersion;
         Int32 MaxContextBlocks;
         String CopilotCliPath;
+        String GithubToken;
         Boolean IsCopilotCliDetected { get; };
+        Boolean IsCopilotAuthLoggedIn { get; };
     }
 }

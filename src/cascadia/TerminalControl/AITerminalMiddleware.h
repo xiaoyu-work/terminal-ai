@@ -4,6 +4,7 @@
 #pragma once
 
 #include "../TerminalApp/CopilotClient.h"
+#include "../../cascadia/TerminalCore/ControlKeyStates.hpp"
 
 #include <functional>
 #include <mutex>
@@ -21,14 +22,21 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         AgentExecuting,   // Tool is running
     };
 
+    // Plain C++ struct for AI settings (avoids dependency on WinRT generated headers)
+    struct AIMiddlewareConfig
+    {
+        int32_t maxContextBlocks{ 5 };
+        std::wstring copilotCliPath;
+        std::wstring githubToken;
+    };
+
     class AITerminalMiddleware
     {
     public:
         AITerminalMiddleware();
 
         // Configure from settings. Call this when settings change.
-        void UpdateSettings(
-            const winrt::Microsoft::Terminal::Settings::Model::AISettings& settings);
+        void UpdateSettings(const AIMiddlewareConfig& config);
 
         // Main interception point. Returns true if the middleware consumed the input.
         // If false, caller should forward input to the connection normally.
@@ -62,14 +70,11 @@ namespace winrt::Microsoft::Terminal::Control::implementation
     private:
         AIMiddlewareState _state{ AIMiddlewareState::Normal };
 
-        // Copilot SDK client (replaces _llmClient + _toolRegistry + _agentLoop)
+        // Copilot SDK client(replaces _llmClient + _toolRegistry + _agentLoop)
         std::shared_ptr<winrt::TerminalApp::implementation::CopilotClient> _copilotClient;
 
-        // Settings
-        bool _enabled{ false };
         std::wstring _copilotCliPath;
-        std::optional<winrt::TerminalApp::implementation::CopilotProviderConfig> _providerConfig;
-        std::wstring _model;
+        std::wstring _githubToken;
         int _maxContextBlocks{ 5 };
 
         // Input capture buffer

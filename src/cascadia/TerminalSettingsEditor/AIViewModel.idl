@@ -1,27 +1,28 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT license.
 
-import "EnumEntry.idl";
-
 namespace Microsoft.Terminal.Settings.Editor
 {
     runtimeclass AIViewModel : Windows.UI.Xaml.Data.INotifyPropertyChanged
     {
         AIViewModel(Microsoft.Terminal.Settings.Model.AISettings aiSettings);
 
-        Boolean Enabled;
-        String ApiKey;
-        String ApiEndpoint;
-        String ModelName;
-        String AzureDeployment;
-        String AzureApiVersion;
         Int32 MaxContextBlocks;
         String CopilotCliPath;
 
-        IInspectable CurrentProvider;
-        IObservableVector<Microsoft.Terminal.Settings.Editor.EnumEntry> ProviderList { get; };
-
-        Boolean IsAzureProvider { get; };
         Boolean IsCopilotCliDetected { get; };
+        Boolean IsCopilotAuthLoggedIn { get; };
+
+        // Device code flow
+        String UserCode { get; };
+        String VerificationUri { get; };
+        Boolean IsOAuthInProgress { get; };
+        String OAuthError { get; };
+
+        void CopilotAuthLogin();
+        void OpenVerificationUri();
+        void CopyUserCode();
+        void CancelOAuth();
+        void Disconnect();
     }
 }

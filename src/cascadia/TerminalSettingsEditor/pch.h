@@ -48,6 +48,12 @@
 #include <winrt/Windows.Media.Core.h>
 #include <winrt/Windows.Media.Playback.h>
 
+#include <winrt/Windows.Web.Http.h>
+#include <winrt/Windows.Web.Http.Headers.h>
+#include <winrt/Windows.Storage.Streams.h>
+#include <winrt/Windows.Data.Json.h>
+#include <winrt/Windows.ApplicationModel.DataTransfer.h>
+
 #include <winrt/Microsoft.UI.Xaml.Controls.h>
 #include <winrt/Microsoft.UI.Xaml.XamlTypeInfo.h>
 

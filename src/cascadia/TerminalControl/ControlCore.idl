@@ -4,7 +4,6 @@
 import "ICoreState.idl";
 import "IControlSettings.idl";
 import "EventArgs.idl";
-import "AISettings.idl";
 
 namespace Microsoft.Terminal.Control
 {
@@ -69,6 +68,13 @@ namespace Microsoft.Terminal.Control
         Boolean SearchRegexInvalid;
     };
 
+    struct AIConfig
+    {
+        Int32 MaxContextBlocks;
+        String CopilotCliPath;
+        String GithubToken;
+    };
+
     [default_interface] runtimeclass SelectionColor
     {
         SelectionColor();
@@ -96,7 +102,7 @@ namespace Microsoft.Terminal.Control
                            Single compositionScale);
 
         void UpdateSettings(IControlSettings settings, IControlAppearance appearance);
-        void UpdateAISettings(Microsoft.Terminal.Settings.Model.AISettings settings);
+        void UpdateAISettings(AIConfig config);
         void ApplyAppearance(Boolean focused);
 
         Microsoft.Terminal.TerminalConnection.ITerminalConnection Connection;

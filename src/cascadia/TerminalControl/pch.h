@@ -56,9 +56,10 @@
 #include <winrt/Microsoft.UI.Xaml.Controls.Primitives.h>
 #include <winrt/Microsoft.UI.Xaml.XamlTypeInfo.h>
 
+#include <winrt/Windows.Data.Json.h>
+
 #include <winrt/Microsoft.Terminal.TerminalConnection.h>
 #include <winrt/Microsoft.Terminal.Core.h>
-#include <winrt/Microsoft.Terminal.Settings.Model.h>
 
 #include <winrt/Microsoft.Terminal.UI.h>
 

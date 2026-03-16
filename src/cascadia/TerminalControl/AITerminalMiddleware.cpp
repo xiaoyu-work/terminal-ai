@@ -5,7 +5,6 @@
 #include "AITerminalMiddleware.h"
 
 using namespace winrt::TerminalApp::implementation;
-using namespace winrt::Microsoft::Terminal::Settings::Model;
 
 namespace winrt::Microsoft::Terminal::Control::implementation
 {
@@ -14,27 +13,11 @@ namespace winrt::Microsoft::Terminal::Control::implementation
         // Client is lazily created when first needed
     }
 
-    void AITerminalMiddleware::UpdateSettings(
-        const winrt::Microsoft::Terminal::Settings::Model::AISettings& settings)
+    void AITerminalMiddleware::UpdateSettings(const AIMiddlewareConfig& config)
     {
-        _enabled = settings.Enabled();
-        _copilotCliPath = std::wstring{ settings.CopilotCliPath() };
-        _model = std::wstring{ settings.ModelName() };
-        _maxContextBlocks = settings.MaxContextBlocks();
-
-        // Build provider config for BYOK
-        if (!settings.ApiKey().empty())
-        {
-            _providerConfig = CopilotClient::MapProviderConfig(
-                settings.Provider(),
-                std::wstring{ settings.ApiKey() },
-                std::wstring{ settings.ApiEndpoint() },
-                std::wstring{ settings.ModelName() });
-        }
-        else
-        {
-            _providerConfig = std::nullopt;
-        }
+        _copilotCliPath = config.copilotCliPath;
+        _maxContextBlocks = config.maxContextBlocks;
+        _githubToken = config.githubToken;
     }
 
     void AITerminalMiddleware::SetTerminalWriter(std::function<void(std::wstring_view)> writer)
@@ -62,11 +45,6 @@ namespace winrt::Microsoft::Terminal::Control::implementation
     bool AITerminalMiddleware::HandleInput(wchar_t ch, WORD scanCode,
                                           ::Microsoft::Terminal::Core::ControlKeyStates modifiers)
     {
-        if (!_enabled)
-        {
-            return false;
-        }
-
         switch (_state)
         {
         case AIMiddlewareState::Normal:
@@ -86,11 +64,6 @@ namespace winrt::Microsoft::Terminal::Control::implementation
 
     bool AITerminalMiddleware::HandleStringInput(std::wstring_view str)
     {
-        if (!_enabled)
-        {
-            return false;
-        }
-
         // When capturing, append the entire pasted string to the prompt buffer
         if (_state == AIMiddlewareState::Capturing)
         {
@@ -107,17 +80,38 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             return true;
         }
 
-        // In Normal/Pending, check if the string starts with "@ "
+        // In Normal/Pending state, check if the string starts with "@ "
         if (_state == AIMiddlewareState::Normal && str.size() >= 2 &&
             str[0] == L'@' && str[1] == L' ')
         {
             _enterCapturing();
-            // Write the "@ " prefix to terminal display
             _writeText(std::wstring{ L"@ " });
-            // Append the rest of the pasted text as the prompt
             if (str.size() > 2)
             {
                 auto rest = str.substr(2);
+                _promptBuffer.append(rest);
+                _writeText(std::wstring{ rest });
+            }
+            return true;
+        }
+
+        // Handle character-by-character input (e.g. from IME/TSF path).
+        // When each character arrives as a separate single-char string,
+        // we need to run them through the same state machine as HandleInput.
+        if (str.size() == 1)
+        {
+            return HandleInput(str[0], 0, {});
+        }
+
+        // In Pending state, check if this string starts with a space
+        // (the user typed '@' previously, now we get " rest..." via paste/TSF)
+        if (_state == AIMiddlewareState::Pending && !str.empty() && str[0] == L' ')
+        {
+            _enterCapturing();
+            _writeText(std::wstring{ L"@ " });
+            if (str.size() > 1)
+            {
+                auto rest = str.substr(1);
                 _promptBuffer.append(rest);
                 _writeText(std::wstring{ rest });
             }
@@ -175,7 +169,7 @@ namespace winrt::Microsoft::Terminal::Control::implementation
     }
 
     bool AITerminalMiddleware::_handleCapturingInput(wchar_t ch, WORD /*scanCode*/,
-                                                     ::Microsoft::Terminal::Core::ControlKeyStates modifiers)
+                                                     ::Microsoft::Terminal::Core::ControlKeyStates /*modifiers*/)
     {
         // Check for Ctrl+C (character 0x03)
         if (ch == L'\x03')
@@ -325,22 +319,75 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             // Lazily start copilot client
             if (!self->_copilotClient || !self->_copilotClient->IsRunning())
             {
-                self->_copilotClient = std::make_shared<CopilotClient>();
+                // Pre-flight check: is copilot CLI available?
+                // npm installs produce .cmd shims, so look for .exe and .cmd.
                 auto cliPath = self->_copilotCliPath.empty() ? L"copilot" : self->_copilotCliPath;
+                {
+                    wchar_t resolvedPath[MAX_PATH];
+                    const auto foundExe = SearchPathW(nullptr, cliPath.c_str(), L".exe",
+                                                      MAX_PATH, resolvedPath, nullptr);
+                    const auto foundCmd = !foundExe &&
+                                          SearchPathW(nullptr, cliPath.c_str(), L".cmd",
+                                                      MAX_PATH, resolvedPath, nullptr);
+                    if (!foundExe && !foundCmd && self->_copilotCliPath.empty())
+                    {
+                        self->_writeNewline();
+                        self->_writeColored(L"\u2717 Copilot CLI not found", 31);
+                        self->_writeNewline();
+                        self->_writeColored(L"  Install it: ", 90);
+                        self->_writeText(L"npm install -g @github/copilot");
+                        self->_writeNewline();
+                        self->_writeColored(L"  Or set the path in Settings \u2192 AI \u2192 Copilot CLI Path", 90);
+                        self->_writeNewline();
+                        self->_enterNormal();
+                        if (self->_writeToConnection)
+                            self->_writeToConnection(L"\r");
+                        co_return;
+                    }
+                    else if (!foundExe && !foundCmd)
+                    {
+                        self->_writeNewline();
+                        self->_writeColored(L"\u2717 Copilot CLI not found at: ", 31);
+                        self->_writeText(self->_copilotCliPath);
+                        self->_writeNewline();
+                        self->_writeColored(L"  Check your Settings \u2192 AI \u2192 Copilot CLI Path", 90);
+                        self->_writeNewline();
+                        self->_enterNormal();
+                        if (self->_writeToConnection)
+                            self->_writeToConnection(L"\r");
+                        co_return;
+                    }
+                }
+
+                self->_copilotClient = std::make_shared<CopilotClient>();
                 std::wstring cwd;
                 if (self->_getCwd)
                     cwd = self->_getCwd();
 
                 try
                 {
-                    co_await self->_copilotClient->StartAsync(cliPath, cwd);
-                    co_await self->_copilotClient->CreateSessionAsync(
-                        self->_model, self->_providerConfig);
+                    co_await self->_copilotClient->StartAsync(cliPath, cwd, self->_githubToken);
+                    co_await self->_copilotClient->CreateSessionAsync(L"");
+                }
+                catch (const winrt::hresult_error& e)
+                {
+                    self->_copilotClient.reset();
+                    self->_writeNewline();
+                    self->_writeColored(L"\u2717 Failed to start Copilot", 31);
+                    self->_writeNewline();
+                    self->_writeColored(L"  ", 90);
+                    self->_writeColored(std::wstring{ e.message() }, 90);
+                    self->_writeNewline();
+                    self->_enterNormal();
+                    if (self->_writeToConnection)
+                        self->_writeToConnection(L"\r");
+                    co_return;
                 }
                 catch (...)
                 {
+                    self->_copilotClient.reset();
                     self->_writeNewline();
-                    self->_writeColored(L"Error: Failed to start copilot CLI. Is it installed and in PATH?", 31);
+                    self->_writeColored(L"\u2717 Failed to start Copilot (unknown error)", 31);
                     self->_writeNewline();
                     self->_enterNormal();
                     if (self->_writeToConnection)
@@ -414,10 +461,17 @@ namespace winrt::Microsoft::Terminal::Control::implementation
                         }
                     });
             }
+            catch (const winrt::hresult_error& e)
+            {
+                self->_writeNewline();
+                self->_writeColored(L"\u2717 Request failed: ", 31);
+                self->_writeColored(std::wstring{ e.message() }, 90);
+                self->_writeNewline();
+            }
             catch (...)
             {
                 self->_writeNewline();
-                self->_writeColored(L"Error: Request failed.", 31);
+                self->_writeColored(L"\u2717 Request failed (unknown error)", 31);
                 self->_writeNewline();
             }
 

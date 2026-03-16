@@ -20,7 +20,12 @@ namespace winrt::Microsoft::Terminal::Settings::Editor::implementation
     void AI::OnNavigatedTo(const NavigationEventArgs& e)
     {
         const auto args = e.Parameter().as<Editor::NavigateToPageArgs>();
-        _ViewModel = args.ViewModel().as<Editor::AIViewModel>();
+        const auto viewModel = args.ViewModel();
+        if (!viewModel)
+        {
+            return;
+        }
+        _ViewModel = viewModel.as<Editor::AIViewModel>();
         BringIntoViewWhenLoaded(args.ElementToFocus());
 
         TraceLoggingWrite(

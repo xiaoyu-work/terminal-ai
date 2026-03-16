@@ -203,9 +203,11 @@ namespace winrt::TerminalApp::implementation
                 cwd = AIContextCollector::GetWorkingDirectory(control);
             }
 
+            auto githubToken = std::wstring(aiSettings.GithubToken());
+
             try
             {
-                co_await _copilotClient->StartAsync(cliPath, cwd);
+                co_await _copilotClient->StartAsync(cliPath, cwd, githubToken);
             }
             catch (...)
             {
@@ -216,22 +218,10 @@ namespace winrt::TerminalApp::implementation
                 co_return;
             }
 
-            // Create session with BYOK provider config
-            std::optional<CopilotProviderConfig> providerConfig;
-            if (!aiSettings.ApiKey().empty())
-            {
-                providerConfig = CopilotClient::MapProviderConfig(
-                    aiSettings.Provider(),
-                    std::wstring(aiSettings.ApiKey()),
-                    std::wstring(aiSettings.ApiEndpoint()),
-                    std::wstring(aiSettings.ModelName()));
-            }
-
+            // Create session using copilot CLI's built-in GitHub OAuth auth
             try
             {
-                co_await _copilotClient->CreateSessionAsync(
-                    std::wstring(aiSettings.ModelName()),
-                    providerConfig);
+                co_await _copilotClient->CreateSessionAsync(L"");
             }
             catch (...)
             {

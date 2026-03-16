@@ -702,60 +702,6 @@
   <data name="AI_Enabled.HelpText" xml:space="preserve">
     <value>When enabled, type @ in the terminal to activate the AI assistant</value>
   </data>
-  <data name="AI_Provider.Header" xml:space="preserve">
-    <value>AI provider</value>
-  </data>
-  <data name="AI_Provider.HelpText" xml:space="preserve">
-    <value>The LLM provider to use for AI features</value>
-  </data>
-  <data name="AI_Provider_OpenAI.Content" xml:space="preserve">
-    <value>OpenAI</value>
-  </data>
-  <data name="AI_Provider_AzureOpenAI.Content" xml:space="preserve">
-    <value>Azure OpenAI</value>
-  </data>
-  <data name="AI_Provider_Gemini.Content" xml:space="preserve">
-    <value>Gemini</value>
-  </data>
-  <data name="AI_Provider_Ollama.Content" xml:space="preserve">
-    <value>Ollama</value>
-  </data>
-  <data name="AI_Provider_DeepSeek.Content" xml:space="preserve">
-    <value>DeepSeek</value>
-  </data>
-  <data name="AI_Provider_Custom.Content" xml:space="preserve">
-    <value>Custom</value>
-  </data>
-  <data name="AI_ApiEndpoint.Header" xml:space="preserve">
-    <value>API endpoint</value>
-  </data>
-  <data name="AI_ApiEndpoint.HelpText" xml:space="preserve">
-    <value>The URL of the LLM API endpoint</value>
-  </data>
-  <data name="AI_ApiKey.Header" xml:space="preserve">
-    <value>API key</value>
-  </data>
-  <data name="AI_ApiKey.HelpText" xml:space="preserve">
-    <value>Your API key for the selected provider</value>
-  </data>
-  <data name="AI_ModelName.Header" xml:space="preserve">
-    <value>Model</value>
-  </data>
-  <data name="AI_ModelName.HelpText" xml:space="preserve">
-    <value>The model to use (e.g., gpt-4o, claude-3-opus)</value>
-  </data>
-  <data name="AI_AzureDeployment.Header" xml:space="preserve">
-    <value>Azure deployment name</value>
-  </data>
-  <data name="AI_AzureDeployment.HelpText" xml:space="preserve">
-    <value>The name of your Azure OpenAI deployment</value>
-  </data>
-  <data name="AI_AzureApiVersion.Header" xml:space="preserve">
-    <value>Azure API version</value>
-  </data>
-  <data name="AI_AzureApiVersion.HelpText" xml:space="preserve">
-    <value>The API version for Azure OpenAI (e.g., 2024-12-01-preview)</value>
-  </data>
   <data name="AI_AdvancedHeader.Text" xml:space="preserve">
     <value>Advanced</value>
   </data>
@@ -771,8 +717,38 @@
   <data name="AI_CopilotCliPath.HelpText" xml:space="preserve">
     <value>Path to the copilot CLI executable. Leave empty to search PATH.</value>
   </data>
-  <data name="AI_Provider_Anthropic.Content" xml:space="preserve">
-    <value>Anthropic</value>
+  <data name="AI_CopilotAuth.Header" xml:space="preserve">
+    <value>GitHub Copilot authentication</value>
+  </data>
+  <data name="AI_CopilotAuth.HelpText" xml:space="preserve">
+    <value>Sign in with your GitHub account to use Copilot</value>
+  </data>
+  <data name="AI_CopilotAuthLoginButton.Content" xml:space="preserve">
+    <value>Sign in with GitHub</value>
+  </data>
+  <data name="AI_CopilotAuthConnected.Text" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="AI_CopilotAuthDisconnectButton.Content" xml:space="preserve">
+    <value>Disconnect</value>
+  </data>
+  <data name="AI_DeviceCodeInstruction.Text" xml:space="preserve">
+    <value>Go to the URL below and enter the code to authorize.</value>
+  </data>
+  <data name="AI_DeviceCodeLabel.Text" xml:space="preserve">
+    <value>Code:</value>
+  </data>
+  <data name="AI_DeviceCodeCopyButton.Content" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="AI_DeviceCodeOpenButton.Content" xml:space="preserve">
+    <value>Open in browser</value>
+  </data>
+  <data name="AI_DeviceCodeWaiting.Text" xml:space="preserve">
+    <value>Waiting for authorization...</value>
+  </data>
+  <data name="AI_DeviceCodeCancelButton.Content" xml:space="preserve">
+    <value>Cancel</value>
   </data>
   <data name="Profile_OpacitySlider.[using:Windows.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve">
     <value>Background opacity</value>

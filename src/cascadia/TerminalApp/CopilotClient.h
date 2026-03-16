@@ -16,12 +16,6 @@
 #include <winrt/Windows.Foundation.h>
 #include <wil/resource.h>
 
-// Forward declare the settings type
-namespace winrt::Microsoft::Terminal::Settings::Model
-{
-    enum class AIProvider : int32_t;
-}
-
 namespace winrt::TerminalApp::implementation
 {
     // ====================================================================
@@ -65,15 +59,6 @@ namespace winrt::TerminalApp::implementation
 
     using CopilotEventCallback = std::function<void(const CopilotEvent&)>;
 
-    // Provider configuration for BYOK
-    struct CopilotProviderConfig
-    {
-        std::wstring type;      // "openai", "azure", "anthropic"
-        std::wstring baseUrl;
-        std::wstring apiKey;
-        std::wstring wireApi;   // "completions" or "responses"
-    };
-
     // ====================================================================
     // CopilotClient - JSON-RPC client wrapping copilot CLI process
     // ====================================================================
@@ -86,14 +71,14 @@ namespace winrt::TerminalApp::implementation
         // Lifecycle
         winrt::Windows::Foundation::IAsyncAction StartAsync(
             const std::wstring& cliPath,
-            const std::wstring& workingDirectory);
+            const std::wstring& workingDirectory,
+            const std::wstring& githubToken = L"");
         void Stop();
         bool IsRunning() const noexcept;
 
         // Session management
         winrt::Windows::Foundation::IAsyncAction CreateSessionAsync(
-            const std::wstring& model,
-            const std::optional<CopilotProviderConfig>& providerConfig);
+            const std::wstring& model);
         winrt::Windows::Foundation::IAsyncAction ResumeSessionAsync(
             const std::wstring& sessionId);
         void DestroySession();
@@ -110,13 +95,6 @@ namespace winrt::TerminalApp::implementation
 
         // Session info
         std::wstring SessionId() const;
-
-        // Map AIProvider enum to SDK provider config
-        static CopilotProviderConfig MapProviderConfig(
-            winrt::Microsoft::Terminal::Settings::Model::AIProvider provider,
-            const std::wstring& apiKey,
-            const std::wstring& apiEndpoint,
-            const std::wstring& model);
 
     private:
         // Process management
@@ -156,11 +134,14 @@ namespace winrt::TerminalApp::implementation
         void _sendResponse(int64_t id, const winrt::Windows::Data::Json::JsonObject& result);
         void _writeMessage(const std::string& json);
 
-        // Message parsing (Content-Length framing)
+        // Message parsing (JSONL framing)
         void _processIncomingMessage(const std::string& json);
         void _handleResponse(const winrt::Windows::Data::Json::JsonObject& msg);
         void _handleRequest(const winrt::Windows::Data::Json::JsonObject& msg);
         void _handleNotification(const winrt::Windows::Data::Json::JsonObject& msg);
+
+        // ACP session/update dispatcher
+        void _handleSessionUpdate(const winrt::Windows::Data::Json::JsonObject& params);
 
         // Dispatch SDK notification to CopilotEvent
         void _dispatchEvent(const std::wstring& method,
@@ -191,11 +172,17 @@ namespace winrt::TerminalApp::implementation
                 cv.notify_one();
             }
 
-            winrt::Windows::Foundation::IAsyncAction waitAsync()
+            winrt::Windows::Foundation::IAsyncAction waitAsync(
+                std::chrono::seconds timeout = std::chrono::seconds{ 10 })
             {
                 co_await winrt::resume_background();
                 std::unique_lock lock(mtx);
-                cv.wait(lock, [this] { return completed; });
+                if (!cv.wait_for(lock, timeout, [this] { return completed; }))
+                {
+                    throw winrt::hresult_error(E_FAIL,
+                        L"Copilot CLI did not respond within " +
+                        std::to_wstring(timeout.count()) + L" seconds");
+                }
                 if (error.has_value())
                 {
                     throw winrt::hresult_error(E_FAIL, winrt::hstring{ error.value() });

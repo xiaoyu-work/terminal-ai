@@ -53,7 +53,7 @@ namespace winrt::Microsoft::Terminal::Control::implementation
 
         void UpdateControlSettings(Control::IControlSettings settings);
         void UpdateControlSettings(Control::IControlSettings settings, Control::IControlAppearance unfocusedAppearance);
-        void UpdateAISettings(const winrt::Microsoft::Terminal::Settings::Model::AISettings& settings);
+        void UpdateAISettings(const winrt::Microsoft::Terminal::Control::AIConfig& config);
         IControlSettings Settings() const;
 
         void KeyBindings(const Control::IKeyBindings& bindings) { _keyBindings = bindings; }

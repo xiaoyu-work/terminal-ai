@@ -3541,6 +3541,15 @@ namespace winrt::TerminalApp::implementation
             const auto& profile = _settings.GetProfileForArgs(newTerminalArgs);
             const auto control = _AttachControlToContent(newTerminalArgs.ContentId());
             auto paneContent{ winrt::make<TerminalPaneContent>(profile, _terminalSettingsCache, control) };
+            if (const auto aiSettings = _settings.GlobalSettings().AISettings())
+            {
+                winrt::Microsoft::Terminal::Control::AIConfig aiConfig{};
+
+                aiConfig.MaxContextBlocks = aiSettings.MaxContextBlocks();
+                aiConfig.CopilotCliPath = aiSettings.CopilotCliPath();
+                aiConfig.GithubToken = aiSettings.GithubToken();
+                control.UpdateAISettings(aiConfig);
+            }
             return std::make_shared<Pane>(paneContent);
         }
 
@@ -3612,6 +3621,17 @@ namespace winrt::TerminalApp::implementation
         }
 
         auto paneContent{ winrt::make<TerminalPaneContent>(profile, _terminalSettingsCache, control) };
+
+        // Apply AI settings to the new terminal so the middleware is
+        // configured from the start (not only on settings reload).
+        if (const auto aiSettings = _settings.GlobalSettings().AISettings())
+        {
+            winrt::Microsoft::Terminal::Control::AIConfig aiConfig{};
+            aiConfig.MaxContextBlocks = aiSettings.MaxContextBlocks();
+            aiConfig.CopilotCliPath = aiSettings.CopilotCliPath();
+            aiConfig.GithubToken = aiSettings.GithubToken();
+            control.UpdateAISettings(aiConfig);
+        }
 
         auto resultPane = std::make_shared<Pane>(paneContent);
 

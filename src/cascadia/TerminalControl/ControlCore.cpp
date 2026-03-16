@@ -159,7 +159,11 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             _renderer->SetRendererEnteredErrorStateCallback([this]() { _rendererEnteredErrorState(); });
         }
 
-        _initAIMiddleware();
+        try
+        {
+            _initAIMiddleware();
+        }
+        CATCH_LOG();
 
         UpdateSettings(settings, unfocusedAppearance);
     }
@@ -196,11 +200,15 @@ namespace winrt::Microsoft::Terminal::Control::implementation
             });
     }
 
-    void ControlCore::UpdateAISettings(const winrt::Microsoft::Terminal::Settings::Model::AISettings& settings)
+    void ControlCore::UpdateAISettings(const winrt::Microsoft::Terminal::Control::AIConfig& config)
     {
-        if (_aiMiddleware && settings)
+        if (_aiMiddleware)
         {
-            _aiMiddleware->UpdateSettings(settings);
+            AIMiddlewareConfig mc;
+            mc.maxContextBlocks = config.MaxContextBlocks;
+            mc.copilotCliPath = std::wstring{ config.CopilotCliPath };
+            mc.githubToken = std::wstring{ config.GithubToken };
+            _aiMiddleware->UpdateSettings(mc);
         }
     }
 

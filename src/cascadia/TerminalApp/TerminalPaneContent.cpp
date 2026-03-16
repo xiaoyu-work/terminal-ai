@@ -349,8 +349,15 @@ namespace winrt::TerminalApp::implementation
         }
 
         // Pass AI settings to the terminal control so the AI middleware
-        // can be configured (enabled/disabled, API keys, model, etc.).
-        _control.UpdateAISettings(settings.GlobalSettings().AISettings());
+        // can be configured.
+        if (const auto aiSettings = settings.GlobalSettings().AISettings())
+        {
+            winrt::Microsoft::Terminal::Control::AIConfig aiConfig{};
+
+            aiConfig.MaxContextBlocks = aiSettings.MaxContextBlocks();
+            aiConfig.CopilotCliPath = aiSettings.CopilotCliPath();
+            _control.UpdateAISettings(aiConfig);
+        }
     }
 
     // Method Description:

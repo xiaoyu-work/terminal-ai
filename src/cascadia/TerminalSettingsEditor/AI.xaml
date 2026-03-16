@@ -17,78 +17,99 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="CommonResources.xaml" />
             </ResourceDictionary.MergedDictionaries>
-
-            <DataTemplate x:Key="EnumComboBoxTemplate"
-                          x:DataType="local:EnumEntry">
-                <TextBlock Text="{x:Bind EnumName, Mode=OneWay}" />
-            </DataTemplate>
         </ResourceDictionary>
     </Page.Resources>
 
     <StackPanel>
         <StackPanel Style="{StaticResource SettingsStackStyle}">
 
-            <!--  Enable AI  -->
-            <local:SettingContainer x:Name="AI_Enabled"
-                                    x:Uid="AI_Enabled">
-                <ToggleSwitch IsOn="{x:Bind ViewModel.Enabled, Mode=TwoWay}"
-                              Style="{StaticResource ToggleSwitchInExpanderStyle}" />
-            </local:SettingContainer>
+            <!--  Copilot OAuth Login  -->
+            <local:SettingContainer x:Name="AI_CopilotAuth"
+                                    x:Uid="AI_CopilotAuth">
+                <StackPanel Spacing="8">
+                    <!--  Connected state  -->
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="8"
+                                Visibility="{x:Bind ViewModel.IsCopilotAuthLoggedIn, Mode=OneWay}">
+                        <FontIcon Glyph="&#xE73E;"
+                                  Foreground="Green"
+                                  VerticalAlignment="Center" />
+                        <TextBlock x:Uid="AI_CopilotAuthConnected"
+                                   VerticalAlignment="Center" />
+                        <Button x:Uid="AI_CopilotAuthDisconnectButton"
+                                Click="{x:Bind ViewModel.Disconnect}" />
+                    </StackPanel>
 
-            <!--  Provider  -->
-            <local:SettingContainer x:Name="AI_Provider"
-                                    x:Uid="AI_Provider">
-                <ComboBox AutomationProperties.AccessibilityView="Content"
-                          ItemTemplate="{StaticResource EnumComboBoxTemplate}"
-                          ItemsSource="{x:Bind ViewModel.ProviderList, Mode=OneWay}"
-                          SelectedItem="{x:Bind ViewModel.CurrentProvider, Mode=TwoWay}"
-                          Style="{StaticResource ComboBoxSettingStyle}" />
-            </local:SettingContainer>
+                    <!--  Not connected, not in progress  -->
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="8"
+                                Visibility="{x:Bind mtu:Converters.InvertedBooleanToVisibility(ViewModel.IsCopilotAuthLoggedIn), Mode=OneWay}">
 
-            <!--  API Endpoint  -->
-            <local:SettingContainer x:Name="AI_ApiEndpoint"
-                                    x:Uid="AI_ApiEndpoint"
-                                    CurrentValue="{x:Bind ViewModel.ApiEndpoint, Mode=OneWay}"
-                                    Style="{StaticResource ExpanderSettingContainerStyle}">
-                <TextBox IsSpellCheckEnabled="False"
-                         Style="{StaticResource TextBoxSettingStyle}"
-                         Text="{x:Bind ViewModel.ApiEndpoint, Mode=TwoWay}" />
-            </local:SettingContainer>
+                        <!--  Sign-in button (hidden during OAuth flow)  -->
+                        <Button x:Uid="AI_CopilotAuthLoginButton"
+                                Click="{x:Bind ViewModel.CopilotAuthLogin}"
+                                Visibility="{x:Bind mtu:Converters.InvertedBooleanToVisibility(ViewModel.IsOAuthInProgress), Mode=OneWay}" />
 
-            <!--  API Key  -->
-            <local:SettingContainer x:Name="AI_ApiKey"
-                                    x:Uid="AI_ApiKey">
-                <PasswordBox Password="{x:Bind ViewModel.ApiKey, Mode=TwoWay}"
-                             Width="320"
-                             HorizontalAlignment="Left" />
-            </local:SettingContainer>
+                        <FontIcon Glyph="&#xE783;"
+                                  Foreground="Red"
+                                  VerticalAlignment="Center"
+                                  Visibility="{x:Bind mtu:Converters.InvertedBooleanToVisibility(ViewModel.IsOAuthInProgress), Mode=OneWay}" />
+                    </StackPanel>
 
-            <!--  Model Name  -->
-            <local:SettingContainer x:Name="AI_ModelName"
-                                    x:Uid="AI_ModelName"
-                                    CurrentValue="{x:Bind ViewModel.ModelName, Mode=OneWay}"
-                                    Style="{StaticResource ExpanderSettingContainerStyle}">
-                <TextBox IsSpellCheckEnabled="False"
-                         Style="{StaticResource TextBoxSettingStyle}"
-                         Text="{x:Bind ViewModel.ModelName, Mode=TwoWay}" />
-            </local:SettingContainer>
+                    <!--  Device code flow in progress  -->
+                    <StackPanel Visibility="{x:Bind ViewModel.IsOAuthInProgress, Mode=OneWay}"
+                                Spacing="12">
+                        <TextBlock x:Uid="AI_DeviceCodeInstruction"
+                                   TextWrapping="Wrap" />
 
-            <!--  Azure Deployment (visible only for Azure OpenAI)  -->
-            <local:SettingContainer x:Name="AI_AzureDeployment"
-                                    x:Uid="AI_AzureDeployment"
-                                    Visibility="{x:Bind ViewModel.IsAzureProvider, Mode=OneWay}">
-                <TextBox IsSpellCheckEnabled="False"
-                         Style="{StaticResource TextBoxSettingStyle}"
-                         Text="{x:Bind ViewModel.AzureDeployment, Mode=TwoWay}" />
-            </local:SettingContainer>
+                        <!--  User code display  -->
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8">
+                            <TextBlock x:Uid="AI_DeviceCodeLabel"
+                                       VerticalAlignment="Center"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="{x:Bind ViewModel.UserCode, Mode=OneWay}"
+                                       VerticalAlignment="Center"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       FontFamily="Consolas"
+                                       IsTextSelectionEnabled="True" />
+                            <Button x:Uid="AI_DeviceCodeCopyButton"
+                                    Click="{x:Bind ViewModel.CopyUserCode}"
+                                    Padding="6,4" />
+                        </StackPanel>
 
-            <!--  Azure API Version (visible only for Azure OpenAI)  -->
-            <local:SettingContainer x:Name="AI_AzureApiVersion"
-                                    x:Uid="AI_AzureApiVersion"
-                                    Visibility="{x:Bind ViewModel.IsAzureProvider, Mode=OneWay}">
-                <TextBox IsSpellCheckEnabled="False"
-                         Style="{StaticResource TextBoxSettingStyle}"
-                         Text="{x:Bind ViewModel.AzureApiVersion, Mode=TwoWay}" />
+                        <!--  Open URL button  -->
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8">
+                            <Button x:Uid="AI_DeviceCodeOpenButton"
+                                    Click="{x:Bind ViewModel.OpenVerificationUri}" />
+                            <TextBlock Text="{x:Bind ViewModel.VerificationUri, Mode=OneWay}"
+                                       VerticalAlignment="Center"
+                                       Foreground="{ThemeResource SystemBaseMediumColor}"
+                                       IsTextSelectionEnabled="True" />
+                        </StackPanel>
+
+                        <!--  Waiting indicator and cancel  -->
+                        <StackPanel Orientation="Horizontal"
+                                    Spacing="8">
+                            <muxc:ProgressRing IsActive="True"
+                                               Width="16"
+                                               Height="16" />
+                            <TextBlock x:Uid="AI_DeviceCodeWaiting"
+                                       VerticalAlignment="Center" />
+                            <Button x:Uid="AI_DeviceCodeCancelButton"
+                                    Click="{x:Bind ViewModel.CancelOAuth}"
+                                    Padding="6,4" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!--  Error message  -->
+                    <TextBlock Text="{x:Bind ViewModel.OAuthError, Mode=OneWay}"
+                               Foreground="Red"
+                               TextWrapping="Wrap"
+                               Visibility="{x:Bind mtu:Converters.StringNotEmptyToVisibility(ViewModel.OAuthError), Mode=OneWay}" />
+                </StackPanel>
             </local:SettingContainer>
         </StackPanel>
 

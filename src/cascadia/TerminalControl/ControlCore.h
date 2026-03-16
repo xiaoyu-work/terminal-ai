@@ -266,7 +266,7 @@ namespace winrt::Microsoft::Terminal::Control::implementation
 
         void PreviewInput(std::wstring_view input);
 
-        void UpdateAISettings(const winrt::Microsoft::Terminal::Settings::Model::AISettings& settings);
+        void UpdateAISettings(const winrt::Microsoft::Terminal::Control::AIConfig& config);
 
         RUNTIME_SETTING(float, Opacity, _settings.Opacity());
         RUNTIME_SETTING(float, FocusedOpacity, FocusedAppearance().Opacity());

@@ -890,7 +890,9 @@
       <BuildType Solution="AuditMode|ARM64" Project="Release" />
       <BuildType Solution="AuditMode|x64" Project="Release" />
       <BuildType Solution="AuditMode|x86" Project="Release" />
-      <Platform Solution="*|Any CPU" Project="Win32" />
+      <Platform Solution="AuditMode|Any CPU" Project="Win32" />
+      <Platform Solution="Fuzzing|Any CPU" Project="Win32" />
+      <Platform Solution="Release|Any CPU" Project="Win32" />
       <Build Project="false" />
     </Project>
     <Project Path="src/tools/buffersize/buffersize.vcxproj" Id="ed82003f-fc5d-4e94-8b47-f480018ed064">

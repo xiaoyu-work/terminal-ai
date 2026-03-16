@@ -5,11 +5,9 @@
 #include "CopilotClient.h"
 
 #include <winrt/Windows.Data.Json.h>
-#include <winrt/Microsoft.Terminal.Settings.Model.h>
 
 using namespace winrt::Windows::Data::Json;
 using namespace winrt::Windows::Foundation;
-namespace WModel = winrt::Microsoft::Terminal::Settings::Model;
 
 namespace winrt::TerminalApp::implementation
 {
@@ -80,7 +78,8 @@ namespace winrt::TerminalApp::implementation
 
     IAsyncAction CopilotClient::StartAsync(
         const std::wstring& cliPath,
-        const std::wstring& workingDirectory)
+        const std::wstring& workingDirectory,
+        const std::wstring& githubToken)
     {
         _workingDirectory = workingDirectory;
 
@@ -106,16 +105,50 @@ namespace winrt::TerminalApp::implementation
         si.dwFlags = STARTF_USESTDHANDLES;
         si.hStdInput = stdinRead;
         si.hStdOutput = stdoutWrite;
-        si.hStdError = stdoutWrite; // merge stderr into stdout
+        si.hStdError = GetStdHandle(STD_ERROR_HANDLE); // keep stderr separate
 
-        // Build command line: "copilot agent --headless"
-        std::wstring cmdline = cliPath.empty() ? L"copilot" : cliPath;
-        cmdline += L" agent --headless";
+        // Build command line: "copilot --acp"
+        // npm-installed CLIs use .cmd shims which CreateProcessW cannot run
+        // directly, so we wrap the call with cmd.exe /c.
+        std::wstring program = cliPath.empty() ? L"copilot" : cliPath;
+        std::wstring cmdline = L"cmd.exe /c \"" + program + L"\" --acp";
         // Mutable copy required by CreateProcessW
         std::vector<wchar_t> cmdlineBuf(cmdline.begin(), cmdline.end());
         cmdlineBuf.push_back(L'\0');
 
         const auto startDir = workingDirectory.empty() ? nullptr : workingDirectory.c_str();
+
+        // Build environment block with GITHUB_TOKEN if provided
+        std::wstring envBlock;
+        LPVOID envPtr = nullptr;
+        if (!githubToken.empty())
+        {
+            // Copy current environment and add/override GITHUB_TOKEN
+            auto currentEnv = GetEnvironmentStringsW();
+            if (currentEnv)
+            {
+                // Parse existing env vars (double-null terminated)
+                auto p = currentEnv;
+                while (*p)
+                {
+                    std::wstring_view entry{ p };
+                    // Skip existing GITHUB_TOKEN
+                    if (entry.substr(0, 13) != L"GITHUB_TOKEN=")
+                    {
+                        envBlock.append(p, entry.size() + 1);
+                    }
+                    p += entry.size() + 1;
+                }
+                FreeEnvironmentStringsW(currentEnv);
+            }
+            // Add our GITHUB_TOKEN
+            envBlock += L"GITHUB_TOKEN=";
+            envBlock += githubToken;
+            envBlock += L'\0';
+            // Double-null terminator
+            envBlock += L'\0';
+            envPtr = envBlock.data();
+        }
 
         PROCESS_INFORMATION pi{};
         const auto created = CreateProcessW(
@@ -124,8 +157,8 @@ namespace winrt::TerminalApp::implementation
             nullptr,
             nullptr,
             TRUE, // inherit handles
-            CREATE_NO_WINDOW,
-            nullptr,
+            CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT,
+            envPtr,
             startDir,
             &si,
             &pi);
@@ -153,11 +186,15 @@ namespace winrt::TerminalApp::implementation
         // Start reader thread
         _readerThread = std::thread([this]() { _readerLoop(); });
 
-        // Ping to verify connectivity
+        // Send ACP initialize to verify connectivity
         auto waiter = std::make_shared<AsyncWaiter>();
         {
+            JsonObject initParams;
+            initParams.Insert(L"protocolVersion", JsonValue::CreateNumberValue(1));
+            initParams.Insert(L"capabilities", JsonObject{});
+
             std::lock_guard lock(_pendingMutex);
-            auto id = _sendRequest("ping", JsonObject{});
+            auto id = _sendRequest("initialize", initParams);
             _pendingRequests[id] = PendingRequest{
                 [waiter](const JsonObject& result) { waiter->complete(result); },
                 [waiter](int, const std::wstring& msg) { waiter->fail(msg); }
@@ -216,7 +253,7 @@ namespace winrt::TerminalApp::implementation
     }
 
     // ====================================================================
-    // Reader Thread (Content-Length framing, like LSP)
+    // Reader Thread (JSONL framing - one JSON object per line)
     // ====================================================================
 
     void CopilotClient::_readerLoop()
@@ -247,57 +284,39 @@ namespace winrt::TerminalApp::implementation
 
             buffer.append(readBuf, bytesRead);
 
-            // Parse Content-Length framed messages
+            // Parse JSONL: each line is a complete JSON message
+            size_t pos = 0;
             while (true)
             {
-                // Look for "Content-Length: <N>\r\n\r\n"
-                const auto headerEnd = buffer.find("\r\n\r\n");
-                if (headerEnd == std::string::npos)
+                const auto newlinePos = buffer.find('\n', pos);
+                if (newlinePos == std::string::npos)
                     break;
 
-                // Parse Content-Length from headers
-                const auto headerStr = buffer.substr(0, headerEnd);
-                size_t contentLength = 0;
+                auto line = buffer.substr(pos, newlinePos - pos);
+                pos = newlinePos + 1;
 
-                const auto clPos = headerStr.find("Content-Length: ");
-                if (clPos != std::string::npos)
-                {
-                    const auto numStart = clPos + 16; // strlen("Content-Length: ")
-                    const auto numEnd = headerStr.find("\r\n", numStart);
-                    const auto numStr = headerStr.substr(numStart, numEnd != std::string::npos ? numEnd - numStart : std::string::npos);
-                    try
-                    {
-                        contentLength = std::stoull(numStr);
-                    }
-                    catch (...)
-                    {
-                        // Bad header, skip
-                        buffer.erase(0, headerEnd + 4);
-                        continue;
-                    }
-                }
+                // Strip trailing \r if present
+                if (!line.empty() && line.back() == '\r')
+                    line.pop_back();
 
-                if (contentLength == 0)
-                {
-                    buffer.erase(0, headerEnd + 4);
+                // Skip empty lines
+                if (line.empty())
                     continue;
-                }
-
-                const auto bodyStart = headerEnd + 4;
-                if (buffer.size() < bodyStart + contentLength)
-                    break; // Need more data
-
-                const auto jsonStr = buffer.substr(bodyStart, contentLength);
-                buffer.erase(0, bodyStart + contentLength);
 
                 try
                 {
-                    _processIncomingMessage(jsonStr);
+                    _processIncomingMessage(line);
                 }
                 catch (...)
                 {
                     // Malformed JSON, skip
                 }
+            }
+
+            // Remove processed lines from buffer
+            if (pos > 0)
+            {
+                buffer.erase(0, pos);
             }
         }
     }
@@ -456,17 +475,106 @@ namespace winrt::TerminalApp::implementation
             {
                 params = paramsVal.GetObject();
             }
-            else if (paramsVal.ValueType() == JsonValueType::Array)
+        }
+
+        // ACP uses "session/update" notifications for streaming
+        if (method == L"session/update")
+        {
+            _handleSessionUpdate(params);
+        }
+        else
+        {
+            _dispatchEvent(method, params);
+        }
+    }
+
+    // ====================================================================
+    // ACP Session Update Handler
+    // ====================================================================
+
+    void CopilotClient::_handleSessionUpdate(const JsonObject& params)
+    {
+        // ACP session/update notification format:
+        // {sessionId: "...", update: {sessionUpdate: "agent_message_chunk",
+        //   content: {type: "text", text: "chunk"}}}
+        if (!params.HasKey(L"update"))
+            return;
+
+        const auto updateVal = params.GetNamedValue(L"update");
+        if (updateVal.ValueType() != JsonValueType::Object)
+            return;
+
+        const auto update = updateVal.GetObject();
+        const auto updateType = jsonGetString(update, L"sessionUpdate");
+
+        CopilotEvent event;
+
+        if (updateType == L"agent_message_chunk")
+        {
+            // Streaming text chunk
+            event.type = CopilotEventType::MessageDelta;
+            if (update.HasKey(L"content"))
             {
-                const auto arr = paramsVal.GetArray();
-                if (arr.Size() > 0 && arr.GetAt(0).ValueType() == JsonValueType::Object)
+                const auto contentVal = update.GetNamedValue(L"content");
+                if (contentVal.ValueType() == JsonValueType::Object)
                 {
-                    params = arr.GetAt(0).GetObject();
+                    event.content = jsonGetString(contentVal.GetObject(), L"text");
                 }
             }
         }
+        else if (updateType == L"agent_message")
+        {
+            event.type = CopilotEventType::Message;
+            if (update.HasKey(L"content"))
+            {
+                const auto contentVal = update.GetNamedValue(L"content");
+                if (contentVal.ValueType() == JsonValueType::Object)
+                {
+                    event.content = jsonGetString(contentVal.GetObject(), L"text");
+                }
+            }
+        }
+        else if (updateType == L"agent_reasoning_chunk")
+        {
+            event.type = CopilotEventType::ReasoningDelta;
+            if (update.HasKey(L"content"))
+            {
+                const auto contentVal = update.GetNamedValue(L"content");
+                if (contentVal.ValueType() == JsonValueType::Object)
+                {
+                    event.content = jsonGetString(contentVal.GetObject(), L"text");
+                }
+            }
+        }
+        else if (updateType == L"tool_execution_start")
+        {
+            event.type = CopilotEventType::ToolExecutionStart;
+            event.toolName = jsonGetString(update, L"toolName");
+            event.toolCallId = jsonGetString(update, L"toolCallId");
+        }
+        else if (updateType == L"tool_execution_complete")
+        {
+            event.type = CopilotEventType::ToolComplete;
+            event.toolName = jsonGetString(update, L"toolName");
+            event.toolCallId = jsonGetString(update, L"toolCallId");
+            event.toolSuccess = true;
+        }
+        else if (updateType == L"error")
+        {
+            event.type = CopilotEventType::SessionError;
+            event.errorMessage = jsonGetString(update, L"message");
+        }
+        else
+        {
+            // Unknown update type, ignore
+            return;
+        }
 
-        _dispatchEvent(method, params);
+        std::lock_guard lock(_callbackMutex);
+        if (_currentCallback)
+        {
+            _currentCallback(event);
+        }
     }
 
     // ====================================================================
@@ -616,11 +724,7 @@ namespace winrt::TerminalApp::implementation
         msg.Insert(L"jsonrpc", JsonValue::CreateStringValue(L"2.0"));
         msg.Insert(L"id", JsonValue::CreateNumberValue(static_cast<double>(id)));
         msg.Insert(L"method", JsonValue::CreateStringValue(winrt::hstring{ utf8ToWide(method) }));
-
-        // Wrap params in array (StreamJsonRpc convention)
-        JsonArray paramsArray;
-        paramsArray.Append(params);
-        msg.Insert(L"params", paramsArray);
+        msg.Insert(L"params", params);
 
         _writeMessage(wideToUtf8(std::wstring{ msg.Stringify() }));
         return id;
@@ -641,9 +745,8 @@ namespace winrt::TerminalApp::implementation
         if (_stdinWrite == INVALID_HANDLE_VALUE)
             return;
 
-        // Content-Length framing
-        const auto header = "Content-Length: " + std::to_string(json.size()) + "\r\n\r\n";
-        const auto fullMsg = header + json;
+        // JSONL framing: one JSON per line
+        const auto fullMsg = json + "\n";
 
         DWORD written = 0;
         WriteFile(_stdinWrite, fullMsg.data(), static_cast<DWORD>(fullMsg.size()), &written, nullptr);
@@ -654,44 +757,22 @@ namespace winrt::TerminalApp::implementation
     // ====================================================================
 
     IAsyncAction CopilotClient::CreateSessionAsync(
-        const std::wstring& model,
-        const std::optional<CopilotProviderConfig>& providerConfig)
+        const std::wstring& model)
     {
         JsonObject params;
+        params.Insert(L"cwd", JsonValue::CreateStringValue(
+            winrt::hstring{ _workingDirectory.empty() ? L"." : _workingDirectory }));
+        params.Insert(L"mcpServers", JsonArray{});
+
         if (!model.empty())
         {
             params.Insert(L"model", JsonValue::CreateStringValue(winrt::hstring{ model }));
-        }
-        params.Insert(L"streaming", JsonValue::CreateBooleanValue(true));
-
-        if (providerConfig.has_value())
-        {
-            JsonObject provider;
-            provider.Insert(L"type", JsonValue::CreateStringValue(winrt::hstring{ providerConfig->type }));
-            if (!providerConfig->baseUrl.empty())
-            {
-                provider.Insert(L"baseUrl", JsonValue::CreateStringValue(winrt::hstring{ providerConfig->baseUrl }));
-            }
-            if (!providerConfig->apiKey.empty())
-            {
-                provider.Insert(L"apiKey", JsonValue::CreateStringValue(winrt::hstring{ providerConfig->apiKey }));
-            }
-            if (!providerConfig->wireApi.empty())
-            {
-                provider.Insert(L"wireApi", JsonValue::CreateStringValue(winrt::hstring{ providerConfig->wireApi }));
-            }
-            params.Insert(L"provider", provider);
-        }
-
-        if (!_workingDirectory.empty())
-        {
-            params.Insert(L"workingDirectory", JsonValue::CreateStringValue(winrt::hstring{ _workingDirectory }));
         }
 
         auto waiter = std::make_shared<AsyncWaiter>();
         {
             std::lock_guard lock(_pendingMutex);
-            auto id = _sendRequest("session.create", params);
+            auto id = _sendRequest("session/new", params);
             _pendingRequests[id] = PendingRequest{
                 [waiter, this](const JsonObject& result) {
                     _sessionId = jsonGetString(result, L"sessionId");
@@ -708,12 +789,11 @@ namespace winrt::TerminalApp::implementation
     {
         JsonObject params;
         params.Insert(L"sessionId", JsonValue::CreateStringValue(winrt::hstring{ sessionId }));
-        params.Insert(L"streaming", JsonValue::CreateBooleanValue(true));
 
         auto waiter = std::make_shared<AsyncWaiter>();
         {
             std::lock_guard lock(_pendingMutex);
-            auto id = _sendRequest("session.resume", params);
+            auto id = _sendRequest("session/load", params);
             _pendingRequests[id] = PendingRequest{
                 [waiter, this, sessionId](const JsonObject&) {
                     _sessionId = sessionId;
@@ -728,15 +808,7 @@ namespace winrt::TerminalApp::implementation
 
     void CopilotClient::DestroySession()
     {
-        if (_sessionId.empty())
-            return;
-
-        JsonObject params;
-        params.Insert(L"sessionId", JsonValue::CreateStringValue(winrt::hstring{ _sessionId }));
-
-        std::lock_guard lock(_pendingMutex);
-        _sendRequest("session.destroy", params);
-        // Fire and forget - don't wait for response
+        // ACP has no session destroy method; just clear local state
         _sessionId.clear();
     }
 
@@ -764,41 +836,31 @@ namespace winrt::TerminalApp::implementation
             _currentCallback = callback;
         }
 
+        // Build ACP prompt array: [{type: "text", text: "..."}]
+        JsonObject textPart;
+        textPart.Insert(L"type", JsonValue::CreateStringValue(L"text"));
+        textPart.Insert(L"text", JsonValue::CreateStringValue(winrt::hstring{ message }));
+
+        JsonArray promptArray;
+        promptArray.Append(textPart);
+
         JsonObject params;
         params.Insert(L"sessionId", JsonValue::CreateStringValue(winrt::hstring{ _sessionId }));
-        params.Insert(L"prompt", JsonValue::CreateStringValue(winrt::hstring{ message }));
+        params.Insert(L"prompt", promptArray);
 
         auto waiter = std::make_shared<AsyncWaiter>();
         {
             std::lock_guard lock(_pendingMutex);
-            auto id = _sendRequest("session.send", params);
+            auto id = _sendRequest("session/prompt", params);
             _pendingRequests[id] = PendingRequest{
                 [waiter](const JsonObject& result) { waiter->complete(result); },
                 [waiter](int, const std::wstring& msg) { waiter->fail(msg); }
             };
         }
 
-        // Wait for the send to be acknowledged (returns messageId)
-        co_await waiter->waitAsync();
-
-        // Now wait for session.idle to indicate processing is complete
-        auto idleWaiter = std::make_shared<AsyncWaiter>();
-        {
-            std::lock_guard lock(_callbackMutex);
-            auto origCallback = _currentCallback;
-            _currentCallback = [origCallback, idleWaiter](const CopilotEvent& event) {
-                if (origCallback)
-                    origCallback(event);
-
-                if (event.type == CopilotEventType::SessionIdle ||
-                    event.type == CopilotEventType::SessionError)
-                {
-                    idleWaiter->complete(JsonObject{});
-                }
-            };
-        }
-
-        co_await idleWaiter->waitAsync();
+        // Wait for the response (streaming chunks arrive as session/update notifications)
+        // The response to session/prompt returns {stopReason: "end_turn"} when complete
+        co_await waiter->waitAsync(std::chrono::seconds{ 120 });
 
         // Clear callback
         {
@@ -809,14 +871,16 @@ namespace winrt::TerminalApp::implementation
 
     void CopilotClient::AbortCurrentRequest()
     {
-        if (_sessionId.empty())
-            return;
-
-        JsonObject params;
-        params.Insert(L"sessionId", JsonValue::CreateStringValue(winrt::hstring{ _sessionId }));
-
+        // ACP has no abort method; cancel all pending requests locally
         std::lock_guard lock(_pendingMutex);
-        _sendRequest("session.abort", params);
+        for (auto& [id, req] : _pendingRequests)
+        {
+            if (req.onError)
+            {
+                req.onError(-1, L"Request cancelled by user");
+            }
+        }
+        _pendingRequests.clear();
     }
 
     // ====================================================================
@@ -841,52 +905,4 @@ namespace winrt::TerminalApp::implementation
         _sendResponse(rpcId, result);
     }
 
-    // ====================================================================
-    // Provider Config Mapping
-    // ====================================================================
-
-    CopilotProviderConfig CopilotClient::MapProviderConfig(
-        WModel::AIProvider provider,
-        const std::wstring& apiKey,
-        const std::wstring& apiEndpoint,
-        const std::wstring& /*model*/)
-    {
-        CopilotProviderConfig config;
-        config.apiKey = apiKey;
-
-        switch (provider)
-        {
-        case WModel::AIProvider::OpenAI:
-            config.type = L"openai";
-            config.baseUrl = apiEndpoint.empty() ? L"https://api.openai.com/v1" : apiEndpoint;
-            break;
-        case WModel::AIProvider::AzureOpenAI:
-            config.type = L"azure";
-            config.baseUrl = apiEndpoint;
-            break;
-        case WModel::AIProvider::Gemini:
-            config.type = L"openai";
-            config.baseUrl = apiEndpoint.empty() ? L"https://generativelanguage.googleapis.com/v1beta/openai" : apiEndpoint;
-            break;
-        case WModel::AIProvider::Ollama:
-            config.type = L"openai";
-            config.baseUrl = apiEndpoint.empty() ? L"http://localhost:11434/v1" : apiEndpoint;
-            break;
-        case WModel::AIProvider::DeepSeek:
-            config.type = L"openai";
-            config.baseUrl = apiEndpoint.empty() ? L"https://api.deepseek.com/v1" : apiEndpoint;
-            break;
-        case WModel::AIProvider::Anthropic:
-            config.type = L"anthropic";
-            config.baseUrl = apiEndpoint.empty() ? L"https://api.anthropic.com" : apiEndpoint;
-            break;
-        case WModel::AIProvider::Custom:
-        default:
-            config.type = L"openai";
-            config.baseUrl = apiEndpoint;
-            break;
-        }
-
-        return config;
-    }
 }
